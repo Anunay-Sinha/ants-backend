@@ -38,6 +38,12 @@ public class TaskController {
     return ResponseEntity.ok(task);
   }
 
+  @RequestMapping(value = "/{id}", method = RequestMethod.DELETE)
+  public ResponseEntity<Task> deleteUserById(@PathVariable String id) {
+    Task task = taskService.removeTask(id);
+    return ResponseEntity.ok(task);
+  }
+
   @RequestMapping(value = "", method = RequestMethod.GET)
   public ResponseEntity<List<Task>> getUserByUserName(@RequestParam String userId) {
     List<Task> tasks = taskService.getTaskByUserId(userId);

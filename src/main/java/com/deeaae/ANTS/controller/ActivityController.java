@@ -19,6 +19,10 @@ public class ActivityController {
 
   @RequestMapping(value = "/{id}", method = RequestMethod.GET)
   public ResponseEntity<Activity> getActivityById(@PathVariable String id) {
+    Activity activity =  activityService.getActivityById(id);
+    if(activity == null) {
+      throw new RuntimeException("Activity with id "+id+" is not available");
+    }
     return ResponseEntity.ok(activityService.getActivityById(id));
   }
 

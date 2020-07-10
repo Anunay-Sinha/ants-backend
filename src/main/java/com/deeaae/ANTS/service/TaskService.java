@@ -23,6 +23,15 @@ public class TaskService {
     return taskRepo.save(task);
   }
 
+  public Task removeTask(String taskId) {
+    Task task = getTaskById(taskId);
+    if(task == null) {
+      throw new RuntimeException("Task with id " +taskId + " not found");
+    }
+    taskRepo.delete(task);
+    return task;
+  }
+
   public Task createTask(Task task) {
     if(task.getTaskId() == null || task.getTaskId().isEmpty()) {
       task.setTaskId(UUID.randomUUID().toString());
