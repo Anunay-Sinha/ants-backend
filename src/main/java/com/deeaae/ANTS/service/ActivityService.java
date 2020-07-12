@@ -7,6 +7,7 @@ import com.deeaae.ANTS.model.Task;
 import com.deeaae.ANTS.repo.ActivityRepo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,10 +20,26 @@ import org.springframework.stereotype.Service;
 public class ActivityService {
 
   @Autowired
+  private ValidateAndUpdateActivityAgainstFrequency validateAndUpdateActivityAgainstFrequency;
+
+  @Autowired
   private ActivityRepo activityRepo;
 
   @Autowired
   private TaskService taskService;
+
+  public Activity removeActivity(String id) {
+    Activity activity = getActivityById(id);
+    if(activity == null) {
+      throw new RuntimeException("Activity with id " + id + ", not found. Delete request failed");
+    }
+    activityRepo.delete(activity);
+    return activity;
+  }
+
+  public Activity save(Activity activity) {
+    return activityRepo.save(activity);
+  }
 
   public Activity addActivity(Activity activity) {
     Task task = taskService.getTaskById(activity.getTaskId());
@@ -35,20 +52,23 @@ public class ActivityService {
     if (getActivityById(activity.getId()) != null) {
       throw new RuntimeException(("activity id already available"));
     }
-    activity.setTimestamp(LocalDateTime.now());
-    if(isEntryLegitAgainstFreq(activity.getTimestamp(), task.getLastEntryTimestamp(), task.getDataCapturingFreqType())) {
-      if(checkForData(activity, task)) {
-        activity = activityRepo.save(activity);
+
+    if(checkForData(activity, task)) {
+      boolean wasEntryPersisted = validateAndUpdateActivityAgainstFrequency.verifyAndUpdateEntry(activity,this, task.getDataCapturingFreqType());
+      if(wasEntryPersisted) {
         task.setLastEntry(activity.getData());
         task.setLastEntryTimestamp(activity.getTimestamp());
         taskService.save(task);
-        return activity;
-      } else {
-        throw new RuntimeException("data not allowed");
       }
+
     } else {
-      throw new RuntimeException("entry not allowed at this point in time");
+      throw new RuntimeException("data entry not allowed, invalid datatype");
     }
+    return activity;
+  }
+
+  public List<Activity> getActivityBetween(LocalDateTime start, LocalDateTime end, String taskId) {
+    return activityRepo.findAllByTaskIdAndTimestampBetween(taskId, start, end);
   }
 
   public Page<Activity> getActivityByTaskId(String taskId, Pageable pageable) {
@@ -92,7 +112,10 @@ public class ActivityService {
 
 
   public boolean isEntryLegitAgainstFreq(LocalDateTime activityTime, LocalDateTime lastRecordedTime,
-      DataCaptureFrequency dataCaptureFrequency) {
+      DataCaptureFrequency dataCaptureFrequency, boolean isEnabled) {
+    if(!isEnabled) {
+      return true;
+    }
     if (lastRecordedTime == null) {
       return true;
     }
